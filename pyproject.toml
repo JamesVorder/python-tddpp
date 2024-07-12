@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "dialectical-python-generator"
+version = "0.1.0"
+description = "A tool for generating Python programs using structured requirements and multi-agent programming."
+authors = ["James Vorderbruggen <james.vorderbruggen@utexas.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+langroid = "^0.2.9"
+pytest = "^8.2.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
