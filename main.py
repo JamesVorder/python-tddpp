@@ -87,6 +87,17 @@ def generate_next_attempt(test_results: str) -> None:
         _out.write(response.content)
 
 
+def teardown() -> None:
+    codegen_path = os.path.join(".", "generated")
+    build_path = os.path.join(".", "build")
+    if not os.path.exists(build_path):
+        os.makedirs(build_path)
+    with open(os.path.join(codegen_path, "test_class.py"), "r+") as generated_file:
+        with open(os.path.join(build_path, "test_class.py"), "w+") as _out:
+            _out.write(generated_file.read())
+            generated_file.truncate(0)
+
+
 def chat() -> None:
     generate_first_attempt()
     for _ in range(5):
@@ -95,6 +106,7 @@ def chat() -> None:
             generate_next_attempt(test_results)
         else:
             break
+    teardown()
     print("Done! All tests are passing, or there is some problem with the test suite itself.")
 
 @app.command()
