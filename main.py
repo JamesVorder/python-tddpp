@@ -1,15 +1,11 @@
 import os
 import typer
 
-# for the test runner
-import pytest
-# ------------------
-
 import langroid as lr
 from langroid.utils.configuration import set_global, Settings
 from langroid.utils.logging import setup_colored_logging
 
-from pytest_plugins import ResultsCollector, SessionStartPlugin
+from TestRunner.GenericTestRunner import InlineTestRunner
 
 app = typer.Typer()
 setup_colored_logging()
@@ -38,21 +34,6 @@ def generate_first_attempt() -> None:
                                        f"{class_skeleton}")
     with open(os.path.join(".", "generated", "test_class.py"), "w+") as _out:
         _out.write(response.content)
-
-
-def get_test_results() -> str:
-    collector = ResultsCollector()
-    setup = SessionStartPlugin()
-    pytest.main(args=["-k", "ExampleClass"], plugins=[collector, setup])
-    _out = ""
-
-    if collector.exitcode > 0:
-        for report in collector.reports:
-            _out += f"{report.outcome.upper()} {report.nodeid} ... Outcome: - {report.longrepr.reprcrash.message}"
-            _out += "\n"
-            _out += report.longreprtext
-            _out += "\n"
-    return collector.exitcode, _out
 
 
 def generate_next_attempt(test_results: str) -> None:
@@ -100,8 +81,11 @@ def teardown() -> None:
 
 def chat() -> None:
     generate_first_attempt()
+    test_runner = InlineTestRunner("", os.path.join(".", "test"))
     for _ in range(5):
-        test_exit_code, test_results = get_test_results()
+        # test_exit_code, test_results = get_test_results()
+        test_exit_code, test_results = test_runner.run()
+        print(test_results)
         if test_exit_code == 1:
             generate_next_attempt(test_results)
         else:
