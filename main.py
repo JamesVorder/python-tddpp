@@ -5,16 +5,14 @@ import langroid as lr
 from langroid.utils.configuration import set_global, Settings
 from langroid.utils.logging import setup_colored_logging
 
-from TestRunner.GenericTestRunner import InlineTestRunner
+from TestRunner.GenericTestRunner import GenericTestRunner, InlineTestRunner, SubProcessTestRunner
 
 app = typer.Typer()
 setup_colored_logging()
 
 
-def generate_first_attempt() -> None:
-    # code_prompt = typer.Prompt("Describe what kind of code you want.")
-    # class_skeleton: str = ""
-    with open(os.path.join(".", "assets", "test_class.py"), "r") as f:
+def generate_first_attempt(class_skeleton: str) -> None:
+    with open(class_skeleton, "r") as f:
         class_skeleton = f.read()
 
     cfg = lr.ChatAgentConfig(
@@ -79,25 +77,34 @@ def teardown() -> None:
             generated_file.truncate(0)
 
 
-def chat() -> None:
-    generate_first_attempt()
-    test_runner = InlineTestRunner("", os.path.join(".", "test"))
-    for _ in range(5):
+def chat(class_skeleton: str, test_dir: str, test_runner: GenericTestRunner, max_epochs: int=5) -> None:
+    generate_first_attempt(class_skeleton)
+    solved = False
+    for _ in range(max_epochs):
         # test_exit_code, test_results = get_test_results()
         test_exit_code, test_results = test_runner.run()
         print(test_results)
-        if test_exit_code == 1:
+        if test_exit_code == 0:
+            solved = True
+            print("Done!")
+            break
+        elif test_exit_code == 1:
             generate_next_attempt(test_results)
         else:
+            solved = True
+            print("There is some problem with the test suite itself.")
             break
     teardown()
-    print("Done! All tests are passing, or there is some problem with the test suite itself.")
+    if not solved:
+        print(f"Reached the end of epoch {max_epochs} without finding a solution :(")
 
 @app.command()
 def main(
     debug: bool = typer.Option(False, "--debug", "-d", help="debug mode"),
     no_stream: bool = typer.Option(False, "--nostream", "-ns", help="no streaming"),
     nocache: bool = typer.Option(False, "--nocache", "-nc", help="don't use cache"),
+    class_skeleton: str = typer.Option(None, "--class-skeleton", "-c", help="You must provide a class skeleton."),
+    test_dir: str = typer.Option(os.path.join(".", "test"), "--test-dir", "-t", help=""),
 ) -> None:
     set_global(
         Settings(
@@ -106,7 +113,15 @@ def main(
             stream=not no_stream,
         )
     )
-    chat()
+    assert os.path.isfile(class_skeleton), f"The class skeleton file provided does not exist! Got {class_skeleton}"
+    assert os.path.exists(test_dir), f"The test-dir provided does not exist! Got {test_dir}"
+
+    tr: GenericTestRunner = InlineTestRunner("", test_dir)
+    chat(
+        class_skeleton=class_skeleton,
+        test_dir=test_dir,
+        test_runner=tr
+    )
 
 
 if __name__ == "__main__":
