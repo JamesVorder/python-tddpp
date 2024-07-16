@@ -1,5 +1,5 @@
 import pytest
-import generated
+import generated.test_class
 
 
 @pytest.mark.parametrize("num1, num2, expected1, expected2", [

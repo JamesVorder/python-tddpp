@@ -22,7 +22,7 @@ class SubProcessTestRunner(GenericTestRunner):
 
     def run(self, *args, **kwargs) -> (int, str):
         # TODO: check that code_dir and test_dir exist
-        proc = subprocess.run(["pytest", self.test_dir], capture_output=True)
+        proc = subprocess.run(["pytest", self.test_dir], capture_output=True, universal_newlines=True)
         return proc.returncode, proc.stdout
 
 
