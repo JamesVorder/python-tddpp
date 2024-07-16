@@ -61,6 +61,7 @@ def generate_next_attempt(test_results: str, test_results_insights: str) -> None
             Your response should be ONLY the python code.
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
+            Your response should NEVER start or end with ```
             Your output MUST be valid, runnable python code and NOTHING else.
         """
     response = agent.llm_response(prompt)
