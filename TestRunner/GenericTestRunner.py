@@ -1,15 +1,12 @@
-from abc import ABCMeta, abstractmethod
-
 import pytest
-
+import subprocess
+from abc import ABCMeta, abstractmethod
 from pytest_plugins import ResultsCollector, SessionStartPlugin
 
 
 class GenericTestRunner(metaclass=ABCMeta):
     @abstractmethod
     def run(self, *args, **kwargs) -> (int, str): pass
-
-import subprocess
 
 
 class SubProcessTestRunner(GenericTestRunner):
