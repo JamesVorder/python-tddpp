@@ -1,5 +1,5 @@
 import pytest
-import generated.test_class
+from generated import test_class
 
 
 @pytest.mark.parametrize("num1, num2, expected1, expected2", [
@@ -11,6 +11,6 @@ import generated.test_class
 def test_init(num1, num2, expected1, expected2):
     # Let's make a test with a tricky expectation.
     # When we initialize TestClass, we should subtract 1 from x and y.
-    instance = generated.test_class.ExampleClass(num1, num2)
+    instance = test_class.ExampleClass(num1, num2)
     assert instance.x == expected1
     assert instance.y == expected2
