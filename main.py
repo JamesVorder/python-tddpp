@@ -148,6 +148,10 @@ def main(
         "./build", "--sandbox-path", "-s",
         help="You may optionally specify a location for the sandbox in which the code generator operates."
              "Default: ./build"
+    ),
+    max_epochs: int = typer.Option(
+        5, "--max-epochs", "-n", help="The maximum number of times to let the code generator try"
+                                      "before giving up."
     )
 ) -> None:
     set_global(
@@ -161,7 +165,7 @@ def main(
     sandbox = CodeGenSandbox(project_dir, class_skeleton_path, test_path, sandbox_path)
     sandbox.init_sandbox()
     tr: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, tr)
+    chat(sandbox, tr, max_epochs=max_epochs)
 
 
 if __name__ == "__main__":
