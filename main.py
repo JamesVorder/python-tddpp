@@ -12,14 +12,13 @@ app = typer.Typer()
 setup_colored_logging()
 
 
-def generate_first_attempt(sandbox: CodeGenSandbox) -> None:
+def generate_first_attempt(sandbox: CodeGenSandbox) -> str:
     with open(sandbox.get_sandboxed_class_path(), "r") as f:
         class_skeleton = f.read()
 
     cfg = lr.ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
             chat_model="ollama/llama3:latest",
-            chat_context_length=8000,
         ),
         vecdb=None
     )
@@ -29,17 +28,20 @@ def generate_first_attempt(sandbox: CodeGenSandbox) -> None:
                                        f"Do NOT add any other methods or commentary."
                                        f"Your response should be ONLY the python code."
                                        f"Do not say 'here is the python code'"
+                                       f"Do not surround your response with quotes or backticks."
+                                       f"DO NOT EVER USE ``` in your output."
                                        f"Your output MUST be valid, runnable python code and NOTHING else."
                                        f"{class_skeleton}")
     with open(sandbox.get_sandboxed_class_path(), "w+") as _out:
         _out.write(response.content)
 
+    return response.content
 
-def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_results_insights: str) -> None:
+
+def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_results_insights: str) -> str:
     cfg = lr.ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
             chat_model="ollama/llama3:latest",
-            chat_context_length=8000,
         ),
         vecdb=None
     )
@@ -62,6 +64,7 @@ def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_resul
             Your response should be ONLY the python code.
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
+            DO NOT EVER USE ``` in your output.
             Your response should NEVER start or end with ```
             Your output MUST be valid, runnable python code and NOTHING else.
         """
@@ -69,12 +72,13 @@ def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_resul
     with open(sandbox.get_sandboxed_class_path(), "w") as _out:
         _out.write(response.content)
 
+    return response.content
 
-def interpret_test_results(results: str) -> str:
+
+def interpret_test_results(results: str, code: str) -> str:
     cfg = lr.ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
             chat_model="ollama/llama3:latest",
-            chat_context_length=8000,
         ),
         vecdb=None
     )
@@ -86,6 +90,8 @@ def interpret_test_results(results: str) -> str:
         You should generally not provide code.
         Please provide insights about the following test results:
         {results}
+        Those results were produced by the following code:
+        {code}
     """
     response = agent.llm_response(prompt)
     return response.content
@@ -103,23 +109,23 @@ def teardown() -> None:
 
 
 def chat(sandbox: CodeGenSandbox, test_runner: GenericTestRunner, max_epochs: int=5) -> None:
-    generate_first_attempt(sandbox)
+    code_attempt = generate_first_attempt(sandbox)
     solved = False
     for _ in range(max_epochs):
-        # test_exit_code, test_results = get_test_results()
+        # test_exit_code, test_result(s = get_test_results()
         test_exit_code, test_results = test_runner.run()
         print(test_results)
         if test_exit_code == 0:
             solved = True
             print("Done!")
             break
-        elif test_exit_code == 1:
-            results_insights = interpret_test_results(test_results)
-            generate_next_attempt(sandbox, test_results, results_insights)
         else:
-            solved = True
-            print("There is some problem with the test suite itself.")
-            break
+            results_insights = interpret_test_results(test_results, code_attempt)
+            code_attempt = generate_next_attempt(sandbox, test_results, results_insights)
+        # else:
+        #     solved = True
+        #     print("There is some problem with the test suite itself.")
+        #     break
     # teardown()
     if not solved:
         print(f"Reached the end of epoch {max_epochs} without finding a solution :(")
