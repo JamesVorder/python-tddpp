@@ -1,8 +1,6 @@
-import pytest
 import subprocess
 from lib.utils import CodeGenSandbox
 from abc import ABCMeta, abstractmethod
-from pytest_plugins import ResultsCollector, SessionStartPlugin
 
 
 class GenericTestRunner(metaclass=ABCMeta):

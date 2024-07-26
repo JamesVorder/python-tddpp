@@ -1,5 +1,9 @@
 import os
+
+from langroid import ChatAgentConfig
+
 from lib.utils import CodeGenSandbox
+from lib.agents import FirstAttemptAgent
 import typer
 
 import langroid as lr
@@ -12,36 +16,10 @@ app = typer.Typer()
 setup_colored_logging()
 
 
-def generate_first_attempt(sandbox: CodeGenSandbox) -> str:
-    with open(sandbox.get_sandboxed_class_path(), "r") as f:
-        class_skeleton = f.read()
-
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
-        ),
-        vecdb=None
-    )
-    main_agent = lr.ChatAgent(cfg)
-    response = main_agent.llm_response(f"You are an expert at writing Python code."
-                                       f"Fill in the following class skeleton."
-                                       f"Do NOT add any other methods or commentary."
-                                       f"Your response should be ONLY the python code."
-                                       f"Do not say 'here is the python code'"
-                                       f"Do not surround your response with quotes or backticks."
-                                       f"DO NOT EVER USE ``` in your output."
-                                       f"Your output MUST be valid, runnable python code and NOTHING else."
-                                       f"{class_skeleton}")
-    with open(sandbox.get_sandboxed_class_path(), "w+") as _out:
-        _out.write(response.content)
-
-    return response.content
-
-
 def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_results_insights: str) -> str:
     cfg = lr.ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
+            chat_model="ollama/llama3.1:latest",
         ),
         vecdb=None
     )
@@ -78,7 +56,7 @@ def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_resul
 def interpret_test_results(results: str, code: str) -> str:
     cfg = lr.ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
+            chat_model="ollama/llama3.1:latest",
         ),
         vecdb=None
     )
@@ -108,8 +86,25 @@ def teardown() -> None:
             generated_file.truncate(0)
 
 
-def chat(sandbox: CodeGenSandbox, test_runner: GenericTestRunner, max_epochs: int=5) -> None:
-    code_attempt = generate_first_attempt(sandbox)
+def chat(
+        sandbox: CodeGenSandbox,
+        first_attempt_agent: FirstAttemptAgent,
+        test_runner: GenericTestRunner,
+        max_epochs: int = 5
+) -> None:
+    code_attempt = first_attempt_agent.respond(
+        prompt=f"""
+            You are an expert at writing Python code.
+            Fill in the following class skeleton.
+            Do NOT add any other methods or commentary.
+            Your response should be ONLY the python code.
+            Do not say 'here is the python code'
+            Do not surround your response with quotes or backticks.
+            DO NOT EVER USE ``` in your output.
+            Your output MUST be valid, runnable python code and NOTHING else.
+            {first_attempt_agent.class_skeleton}
+        """
+    )
     solved = False
     for _ in range(max_epochs):
         # test_exit_code, test_result(s = get_test_results()
@@ -168,10 +163,18 @@ def main(
         )
     )
 
+    llama3 = ChatAgentConfig(
+        llm=lr.language_models.OpenAIGPTConfig(
+            chat_model="ollama/llama3:latest",
+        ),
+        vecdb=None
+    )
+
     sandbox = CodeGenSandbox(project_dir, class_skeleton_path, test_path, sandbox_path)
     sandbox.init_sandbox()
+    fa: FirstAttemptAgent = FirstAttemptAgent(sandbox, llama3)
     tr: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, tr, max_epochs=max_epochs)
+    chat(sandbox, fa, tr, max_epochs=max_epochs)
 
 
 if __name__ == "__main__":
