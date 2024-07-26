@@ -16,17 +16,6 @@ app = typer.Typer()
 setup_colored_logging()
 
 
-def teardown() -> None:
-    codegen_path = os.path.join(".", "generated")
-    build_path = os.path.join(".", "build")
-    if not os.path.exists(build_path):
-        os.makedirs(build_path)
-    with open(os.path.join(codegen_path, "test_class.py"), "r+") as generated_file:
-        with open(os.path.join(build_path, "test_class.py"), "w+") as _out:
-            _out.write(generated_file.read())
-            generated_file.truncate(0)
-
-
 def chat(
         sandbox: CodeGenSandbox,
         code_gen_agent: GenericAgent,
