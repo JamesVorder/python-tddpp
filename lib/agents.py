@@ -3,7 +3,6 @@ from abc import ABCMeta, abstractmethod
 from langroid import ChatAgent, ChatAgentConfig
 
 from lib.utils import CodeGenSandbox
-from TestRunner import GenericTestRunner
 
 
 class GenericAgent(metaclass=ABCMeta):

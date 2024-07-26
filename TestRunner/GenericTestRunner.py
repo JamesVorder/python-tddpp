@@ -23,25 +23,3 @@ class SubProcessTestRunner(GenericTestRunner):
             universal_newlines=True
         )
         return proc.returncode, proc.stdout
-
-
-# TODO: This implementation is currently defunct
-# class InlineTestRunner(GenericTestRunner):
-#
-#     def __init__(self, sandbox) -> None:
-#         self.test_dir = sandbox.get_sandboxed_test_path()
-#
-#     def run(self, *args, **kwargs) -> (int, str):
-#         collector = ResultsCollector()
-#         setup = SessionStartPlugin()
-#         # TODO: Remove the ExampleClass reference here.
-#         pytest.main(args=["-k", "ExampleClass"], plugins=[collector, setup])
-#         _out = ""
-#
-#         if collector.exitcode > 0:
-#             for report in collector.reports:
-#                 _out += f"{report.outcome.upper()} {report.nodeid} ... Outcome: - {report.longrepr.reprcrash.message}"
-#                 _out += "\n"
-#                 _out += report.longreprtext
-#                 _out += "\n"
-#         return collector.exitcode, _out

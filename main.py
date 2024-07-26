@@ -17,7 +17,6 @@ setup_colored_logging()
 
 
 def chat(
-        sandbox: CodeGenSandbox,
         code_gen_agent: GenericAgent,
         test_interpreter: GenericAgent,
         test_runner: GenericTestRunner,
@@ -84,11 +83,6 @@ def chat(
                 Your output MUST be valid, runnable python code and NOTHING else.
                 """
             )
-        # else:
-        #     solved = True
-        #     print("There is some problem with the test suite itself.")
-        #     break
-    # teardown()
     if not solved:
         print(f"Reached the end of epoch {max_epochs} without finding a solution :(")
 
