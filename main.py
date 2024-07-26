@@ -3,7 +3,7 @@ import os
 from langroid import ChatAgentConfig
 
 from lib.utils import CodeGenSandbox
-from lib.agents import CodeGenAgent, GenericAgent
+from lib.agents import CodeGenAgent, TestInterpreterAgent, GenericAgent
 import typer
 
 import langroid as lr
@@ -14,28 +14,6 @@ from TestRunner.GenericTestRunner import GenericTestRunner, SubProcessTestRunner
 
 app = typer.Typer()
 setup_colored_logging()
-
-
-def interpret_test_results(results: str, code: str) -> str:
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3.1:latest",
-        ),
-        vecdb=None
-    )
-    agent = lr.ChatAgent(cfg)
-    prompt = f"""
-        You are an expert at interpreting the results of unit tests, and providing insight into what they mean.
-        You should be descriptive about what variables are incorrect, and in what way.
-        You should include information about which methods should be modified, and in what way.
-        You should generally not provide code.
-        Please provide insights about the following test results:
-        {results}
-        Those results were produced by the following code:
-        {code}
-    """
-    response = agent.llm_response(prompt)
-    return response.content
 
 
 def teardown() -> None:
@@ -51,7 +29,8 @@ def teardown() -> None:
 
 def chat(
         sandbox: CodeGenSandbox,
-        code_gen_agent: CodeGenAgent,
+        code_gen_agent: GenericAgent,
+        test_interpreter: GenericAgent,
         test_runner: GenericTestRunner,
         max_epochs: int = 5
 ) -> None:
@@ -78,7 +57,20 @@ def chat(
             print("Done!")
             break
         else:
-            results_insights = interpret_test_results(test_results, code_attempt)
+            test_interpreter.set_latest_test_results(test_results)
+            test_interpreter.set_latest_test_exit_code(test_exit_code)
+            results_insights = test_interpreter.respond(
+                prompt=f"""
+                You are an expert at interpreting the results of unit tests, and providing insight into what they mean.
+                You should be descriptive about what variables are incorrect, and in what way.
+                You should include information about which methods should be modified, and in what way.
+                You should generally not provide code.
+                Please provide insights about the following test results:
+                {test_interpreter.latest_test_results}
+                Those results were produced by the following code:
+                {test_interpreter.latest_test_exit_code}
+                """
+            )
             code_gen_agent.set_previous_code_attempt(code_attempt)
             code_gen_agent.set_latest_test_result(test_results)
             code_gen_agent.set_latest_test_result_interpretation(results_insights)
@@ -159,8 +151,9 @@ def main(
     sandbox = CodeGenSandbox(project_dir, class_skeleton_path, test_path, sandbox_path)
     sandbox.init_sandbox()
     code_generator: GenericAgent = CodeGenAgent(sandbox, llama3)
-    tr: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, code_generator, tr, max_epochs=max_epochs)
+    test_interpreter: GenericAgent = TestInterpreterAgent(sandbox, llama3)
+    test_runner: GenericTestRunner = SubProcessTestRunner(sandbox)
+    chat(sandbox, code_generator, test_interpreter, test_runner, max_epochs=max_epochs)
 
 
 if __name__ == "__main__":

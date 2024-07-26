@@ -9,6 +9,7 @@ class GenericTestRunner(metaclass=ABCMeta):
 
 
 class SubProcessTestRunner(GenericTestRunner):
+
     sandbox: CodeGenSandbox
 
     def __init__(self, sandbox: CodeGenSandbox) -> None:
