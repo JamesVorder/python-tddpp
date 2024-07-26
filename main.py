@@ -1,5 +1,9 @@
 import os
+
+from langroid import ChatAgentConfig
+
 from lib.utils import CodeGenSandbox
+from lib.agents import CodeGenAgent, TestInterpreterAgent, GenericAgent
 import typer
 
 import langroid as lr
@@ -12,104 +16,25 @@ app = typer.Typer()
 setup_colored_logging()
 
 
-def generate_first_attempt(sandbox: CodeGenSandbox) -> str:
-    with open(sandbox.get_sandboxed_class_path(), "r") as f:
-        class_skeleton = f.read()
-
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
-        ),
-        vecdb=None
-    )
-    main_agent = lr.ChatAgent(cfg)
-    response = main_agent.llm_response(f"You are an expert at writing Python code."
-                                       f"Fill in the following class skeleton."
-                                       f"Do NOT add any other methods or commentary."
-                                       f"Your response should be ONLY the python code."
-                                       f"Do not say 'here is the python code'"
-                                       f"Do not surround your response with quotes or backticks."
-                                       f"DO NOT EVER USE ``` in your output."
-                                       f"Your output MUST be valid, runnable python code and NOTHING else."
-                                       f"{class_skeleton}")
-    with open(sandbox.get_sandboxed_class_path(), "w+") as _out:
-        _out.write(response.content)
-
-    return response.content
-
-
-def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_results_insights: str) -> str:
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
-        ),
-        vecdb=None
-    )
-    agent = lr.ChatAgent(cfg)
-    with open(sandbox.get_sandboxed_class_path(), "r") as f:
-        code_snippet = f.read()
-
-    prompt = f"""
+def chat(
+        code_gen_agent: GenericAgent,
+        test_interpreter: GenericAgent,
+        test_runner: GenericTestRunner,
+        max_epochs: int = 5
+) -> None:
+    code_attempt = code_gen_agent.respond(
+        prompt=f"""
             You are an expert at writing Python code.
-            Consider the following code, and test results.
-            Here is the code:
-            {code_snippet}
-            Here are the test results:
-            {test_results}
-            In addition, you may consider these insights about the test results when coming up with your solution:
-            {test_results_insights}
-            Update the code so that the tests will pass.
-            Your output MUST contain all the same classes and methods as the input code.
+            Fill in the following class skeleton.
             Do NOT add any other methods or commentary.
             Your response should be ONLY the python code.
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
             DO NOT EVER USE ``` in your output.
-            Your response should NEVER start or end with ```
             Your output MUST be valid, runnable python code and NOTHING else.
+            {code_gen_agent.class_skeleton}
         """
-    response = agent.llm_response(prompt)
-    with open(sandbox.get_sandboxed_class_path(), "w") as _out:
-        _out.write(response.content)
-
-    return response.content
-
-
-def interpret_test_results(results: str, code: str) -> str:
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
-        ),
-        vecdb=None
     )
-    agent = lr.ChatAgent(cfg)
-    prompt = f"""
-        You are an expert at interpreting the results of unit tests, and providing insight into what they mean.
-        You should be descriptive about what variables are incorrect, and in what way.
-        You should include information about which methods should be modified, and in what way.
-        You should generally not provide code.
-        Please provide insights about the following test results:
-        {results}
-        Those results were produced by the following code:
-        {code}
-    """
-    response = agent.llm_response(prompt)
-    return response.content
-
-
-def teardown() -> None:
-    codegen_path = os.path.join(".", "generated")
-    build_path = os.path.join(".", "build")
-    if not os.path.exists(build_path):
-        os.makedirs(build_path)
-    with open(os.path.join(codegen_path, "test_class.py"), "r+") as generated_file:
-        with open(os.path.join(build_path, "test_class.py"), "w+") as _out:
-            _out.write(generated_file.read())
-            generated_file.truncate(0)
-
-
-def chat(sandbox: CodeGenSandbox, test_runner: GenericTestRunner, max_epochs: int=5) -> None:
-    code_attempt = generate_first_attempt(sandbox)
     solved = False
     for _ in range(max_epochs):
         # test_exit_code, test_result(s = get_test_results()
@@ -120,13 +45,44 @@ def chat(sandbox: CodeGenSandbox, test_runner: GenericTestRunner, max_epochs: in
             print("Done!")
             break
         else:
-            results_insights = interpret_test_results(test_results, code_attempt)
-            code_attempt = generate_next_attempt(sandbox, test_results, results_insights)
-        # else:
-        #     solved = True
-        #     print("There is some problem with the test suite itself.")
-        #     break
-    # teardown()
+            test_interpreter.set_latest_test_results(test_results)
+            test_interpreter.set_latest_test_exit_code(test_exit_code)
+            results_insights = test_interpreter.respond(
+                prompt=f"""
+                You are an expert at interpreting the results of unit tests, and providing insight into what they mean.
+                You should be descriptive about what variables are incorrect, and in what way.
+                You should include information about which methods should be modified, and in what way.
+                You should generally not provide code.
+                Please provide insights about the following test results:
+                {test_interpreter.latest_test_results}
+                Those results were produced by the following code:
+                {test_interpreter.latest_test_exit_code}
+                """
+            )
+            code_gen_agent.set_previous_code_attempt(code_attempt)
+            code_gen_agent.set_latest_test_result(test_results)
+            code_gen_agent.set_latest_test_result_interpretation(results_insights)
+            code_attempt = code_gen_agent.respond(
+                prompt=f"""
+                You are an expert at writing Python code.
+                Consider the following code, and test results.
+                Here is the code:
+                {code_gen_agent.previous_code_attempt}
+                Here are the test results:
+                {code_gen_agent.latest_test_result}
+                In addition, you may consider these insights about the test results when coming up with your solution:
+                {code_gen_agent.latest_test_result_interpretation}
+                Update the code so that the tests will pass.
+                Your output MUST contain all the same classes and methods as the input code.
+                Do NOT add any other methods or commentary.
+                Your response should be ONLY the python code.
+                Do not say 'here is the python code'
+                Do not surround your response with quotes or backticks.
+                DO NOT EVER USE ``` in your output.
+                Your response should NEVER start or end with ```
+                Your output MUST be valid, runnable python code and NOTHING else.
+                """
+            )
     if not solved:
         print(f"Reached the end of epoch {max_epochs} without finding a solution :(")
 
@@ -168,10 +124,19 @@ def main(
         )
     )
 
+    llama3 = ChatAgentConfig(
+        llm=lr.language_models.OpenAIGPTConfig(
+            chat_model="ollama/llama3:latest",
+        ),
+        vecdb=None
+    )
+
     sandbox = CodeGenSandbox(project_dir, class_skeleton_path, test_path, sandbox_path)
     sandbox.init_sandbox()
-    tr: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, tr, max_epochs=max_epochs)
+    code_generator: GenericAgent = CodeGenAgent(sandbox, llama3)
+    test_interpreter: GenericAgent = TestInterpreterAgent(sandbox, llama3)
+    test_runner: GenericTestRunner = SubProcessTestRunner(sandbox)
+    chat(sandbox, code_generator, test_interpreter, test_runner, max_epochs=max_epochs)
 
 
 if __name__ == "__main__":
