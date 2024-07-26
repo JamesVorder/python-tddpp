@@ -3,7 +3,7 @@ import os
 from langroid import ChatAgentConfig
 
 from lib.utils import CodeGenSandbox
-from lib.agents import FirstAttemptAgent
+from lib.agents import CodeGenAgent, GenericAgent
 import typer
 
 import langroid as lr
@@ -14,43 +14,6 @@ from TestRunner.GenericTestRunner import GenericTestRunner, SubProcessTestRunner
 
 app = typer.Typer()
 setup_colored_logging()
-
-
-def generate_next_attempt(sandbox: CodeGenSandbox, test_results: str, test_results_insights: str) -> str:
-    cfg = lr.ChatAgentConfig(
-        llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3.1:latest",
-        ),
-        vecdb=None
-    )
-    agent = lr.ChatAgent(cfg)
-    with open(sandbox.get_sandboxed_class_path(), "r") as f:
-        code_snippet = f.read()
-
-    prompt = f"""
-            You are an expert at writing Python code.
-            Consider the following code, and test results.
-            Here is the code:
-            {code_snippet}
-            Here are the test results:
-            {test_results}
-            In addition, you may consider these insights about the test results when coming up with your solution:
-            {test_results_insights}
-            Update the code so that the tests will pass.
-            Your output MUST contain all the same classes and methods as the input code.
-            Do NOT add any other methods or commentary.
-            Your response should be ONLY the python code.
-            Do not say 'here is the python code'
-            Do not surround your response with quotes or backticks.
-            DO NOT EVER USE ``` in your output.
-            Your response should NEVER start or end with ```
-            Your output MUST be valid, runnable python code and NOTHING else.
-        """
-    response = agent.llm_response(prompt)
-    with open(sandbox.get_sandboxed_class_path(), "w") as _out:
-        _out.write(response.content)
-
-    return response.content
 
 
 def interpret_test_results(results: str, code: str) -> str:
@@ -88,11 +51,11 @@ def teardown() -> None:
 
 def chat(
         sandbox: CodeGenSandbox,
-        first_attempt_agent: FirstAttemptAgent,
+        code_gen_agent: CodeGenAgent,
         test_runner: GenericTestRunner,
         max_epochs: int = 5
 ) -> None:
-    code_attempt = first_attempt_agent.respond(
+    code_attempt = code_gen_agent.respond(
         prompt=f"""
             You are an expert at writing Python code.
             Fill in the following class skeleton.
@@ -102,7 +65,7 @@ def chat(
             Do not surround your response with quotes or backticks.
             DO NOT EVER USE ``` in your output.
             Your output MUST be valid, runnable python code and NOTHING else.
-            {first_attempt_agent.class_skeleton}
+            {code_gen_agent.class_skeleton}
         """
     )
     solved = False
@@ -116,7 +79,30 @@ def chat(
             break
         else:
             results_insights = interpret_test_results(test_results, code_attempt)
-            code_attempt = generate_next_attempt(sandbox, test_results, results_insights)
+            code_gen_agent.set_previous_code_attempt(code_attempt)
+            code_gen_agent.set_latest_test_result(test_results)
+            code_gen_agent.set_latest_test_result_interpretation(results_insights)
+            code_attempt = code_gen_agent.respond(
+                prompt=f"""
+                You are an expert at writing Python code.
+                Consider the following code, and test results.
+                Here is the code:
+                {code_gen_agent.previous_code_attempt}
+                Here are the test results:
+                {code_gen_agent.latest_test_result}
+                In addition, you may consider these insights about the test results when coming up with your solution:
+                {code_gen_agent.latest_test_result_interpretation}
+                Update the code so that the tests will pass.
+                Your output MUST contain all the same classes and methods as the input code.
+                Do NOT add any other methods or commentary.
+                Your response should be ONLY the python code.
+                Do not say 'here is the python code'
+                Do not surround your response with quotes or backticks.
+                DO NOT EVER USE ``` in your output.
+                Your response should NEVER start or end with ```
+                Your output MUST be valid, runnable python code and NOTHING else.
+                """
+            )
         # else:
         #     solved = True
         #     print("There is some problem with the test suite itself.")
@@ -172,9 +158,9 @@ def main(
 
     sandbox = CodeGenSandbox(project_dir, class_skeleton_path, test_path, sandbox_path)
     sandbox.init_sandbox()
-    fa: FirstAttemptAgent = FirstAttemptAgent(sandbox, llama3)
+    code_generator: GenericAgent = CodeGenAgent(sandbox, llama3)
     tr: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, fa, tr, max_epochs=max_epochs)
+    chat(sandbox, code_generator, tr, max_epochs=max_epochs)
 
 
 if __name__ == "__main__":
