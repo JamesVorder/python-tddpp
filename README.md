@@ -23,15 +23,11 @@ ollama run llama3:latest
 ```
 
 ## Running The Tool
-Currently, almost everything in this repo is hard-coded.
-To run the example program, simply:
+For usage information, run:
 ```commandline
-poetry run python -m main
+poetry run python -m main --help
 ```
 
 # Roadmap
-* Configurable class skeleton and tests location
-* Configurable local LLM
-* _Multi-agent implementation for test output enrichment???_
 * Containerization
 * Configurable OpenAI API key for ChatGPT usage
