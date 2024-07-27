@@ -36,7 +36,7 @@ def chat(
         """
     )
     solved = False
-    for _ in range(max_epochs):
+    for _ in range(max_epochs - 1):
         # test_exit_code, test_result(s = get_test_results()
         test_exit_code, test_results = test_runner.run()
         print(test_results)
