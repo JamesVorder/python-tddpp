@@ -136,7 +136,7 @@ def main(
     code_generator: GenericAgent = CodeGenAgent(sandbox, llama3)
     test_interpreter: GenericAgent = TestInterpreterAgent(sandbox, llama3)
     test_runner: GenericTestRunner = SubProcessTestRunner(sandbox)
-    chat(sandbox, code_generator, test_interpreter, test_runner, max_epochs=max_epochs)
+    chat(code_generator, test_interpreter, test_runner, max_epochs)
 
 
 if __name__ == "__main__":
