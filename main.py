@@ -31,7 +31,10 @@ def chat(
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
             DO NOT EVER USE ``` in your output.
+            You should maintain any comments that were provided in the class skeleton.
+            You should maintain the exact method signatures provided in the class skeleton.
             Your output MUST be valid, runnable python code and NOTHING else.
+            Your output MUST NOT include any usage of testing tools like unittest, pytest, mock, etc.
             {code_gen_agent.class_skeleton}
         """
     )
@@ -51,8 +54,11 @@ def chat(
                 prompt=f"""
                 You are an expert at interpreting the results of unit tests, and providing insight into what they mean.
                 You should be descriptive about what variables are incorrect, and in what way.
-                You should include information about which methods should be modified, and in what way.
-                You should generally not provide code.
+                You should include information about which methods should be modified, and in what way (without providing code.)
+                You should not provide code.
+                You should NEVER attempt to modify the tests, or give advice to modify the tests.
+                Give results in a bulleted list, with one bullet for each method that fails tests.
+                Keep insights very brief, providing a maximum of 3 sentences about each method that failed a test.
                 Please provide insights about the following test results:
                 {test_interpreter.latest_test_results}
                 Those results were produced by the following code:
@@ -65,7 +71,7 @@ def chat(
             code_attempt = code_gen_agent.respond(
                 prompt=f"""
                 You are an expert at writing Python code.
-                Consider the following code, and test results.
+                Consider the following code, and the following test results.
                 Here is the code:
                 {code_gen_agent.previous_code_attempt}
                 Here are the test results:
@@ -80,7 +86,10 @@ def chat(
                 Do not surround your response with quotes or backticks.
                 DO NOT EVER USE ``` in your output.
                 Your response should NEVER start or end with ```
+                You should maintain any comments that were provided in the code.
+                You should maintain the exact method signatures provided in the code.
                 Your output MUST be valid, runnable python code and NOTHING else.
+                Your output MUST NOT include any usage of testing tools like unittest, pytest, mock, etc.
                 """
             )
     if not solved:
@@ -126,7 +135,8 @@ def main(
 
     llama3 = ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3:latest",
+            chat_model="ollama/llama3.1:latest",
+            chat_context_length=128000
         ),
         vecdb=None
     )
