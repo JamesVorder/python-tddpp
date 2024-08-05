@@ -28,6 +28,10 @@ def chat(
             Fill in the following class skeleton.
             Do NOT add any other methods or commentary.
             Your response should be ONLY the python code.
+            DO NOT ADD ``` IN THE BEGINNING OR END
+            DO NOT ADD python COMMAND IN THE BEGINNING
+            DO ONLY ONE CLASS AT A TIME
+            Keep Imported Modules or Classes
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
             DO NOT EVER USE ``` in your output.
@@ -59,6 +63,8 @@ def chat(
                 You should NEVER attempt to modify the tests, or give advice to modify the tests.
                 Give results in a bulleted list, with one bullet for each method that fails tests.
                 Keep insights very brief, providing a maximum of 3 sentences about each method that failed a test.
+                If there are any ```, suggest their removal
+                If there is a ```python, suggest its removal
                 Please provide insights about the following test results:
                 {test_interpreter.latest_test_results}
                 Those results were produced by the following code:
@@ -79,7 +85,12 @@ def chat(
                 In addition, you may consider these insights about the test results when coming up with your solution:
                 {code_gen_agent.latest_test_result_interpretation}
                 Update the code so that the tests will pass.
+                DO NOT ADD ``` IN THE BEGINNING OR END
+                DO NOT ADD python COMMAND IN THE BEGINNING
+                REMOVE ``` IN THE BEGINNING OR END
+                REMOVE python COMMAND IN THE BEGINNING
                 Your output MUST contain all the same classes and methods as the input code.
+                CORRECT ONLY ONE METHOD AT A TIME
                 Do NOT add any other methods or commentary.
                 Your response should be ONLY the python code.
                 Do not say 'here is the python code'
@@ -135,8 +146,10 @@ def main(
 
     llama3 = ChatAgentConfig(
         llm=lr.language_models.OpenAIGPTConfig(
-            chat_model="ollama/llama3.1:latest",
-            chat_context_length=128000
+            #chat_model="ollama/llama3.1:latest",
+            #chat_context_length=128000
+            chat_model="litellm/gemini/gemini-1.5-flash-latest",
+            chat_context_length=1000000
         ),
         vecdb=None
     )
