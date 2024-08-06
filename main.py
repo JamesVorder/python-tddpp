@@ -30,7 +30,6 @@ def chat(
             Your response should be ONLY the python code.
             DO NOT ADD ``` IN THE BEGINNING OR END
             DO NOT ADD python COMMAND IN THE BEGINNING
-            DO ONLY ONE CLASS AT A TIME
             Keep Imported Modules or Classes
             Do not say 'here is the python code'
             Do not surround your response with quotes or backticks.
@@ -89,6 +88,7 @@ def chat(
                 DO NOT ADD python COMMAND IN THE BEGINNING
                 REMOVE ``` IN THE BEGINNING OR END
                 REMOVE python COMMAND IN THE BEGINNING
+                Any output strings should match test output
                 Your output MUST contain all the same classes and methods as the input code.
                 CORRECT ONLY ONE METHOD AT A TIME
                 Do NOT add any other methods or commentary.
